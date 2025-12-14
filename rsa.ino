@@ -1,0 +1,112 @@
+#include <Crypto.h>
+#include "minirrsa.h"
+
+// ====================================================
+// CLAVE RSA 512 bits 
+// ====================================================
+
+uint8_t modulus[64] = {
+  0xC7,0x3B,0x52,0x11,0xA4,0x2D,0x68,0x63,
+  0xF8,0xB1,0x46,0x53,0xE6,0xA5,0x88,0xCA,
+  0xA9,0xA3,0x47,0x59,0xE1,0xC7,0x7B,0x32,
+  0x90,0xF4,0xBC,0xF2,0x40,0xE2,0x18,0x81,
+  0x97,0x45,0x08,0x57,0xBB,0x8C,0xA9,0xD0,
+  0x14,0x23,0x63,0x99,0x37,0xFE,0x21,0xC6,
+  0xA1,0xE8,0x7D,0xCA,0x46,0x72,0x55,0x11,
+  0xEA,0x93,0xDD,0x81,0xC0,0x22,0x16,0x01
+};
+
+uint8_t d[64] = {
+  0x6E,0xA1,0x13,0x94,0x52,0xB1,0x20,0xF3,
+  0x4B,0x02,0x91,0x3C,0xBC,0xA0,0x51,0x2D,
+  0x57,0xA4,0x97,0x22,0xF8,0xC0,0x34,0x65,
+  0x92,0x38,0xBB,0x28,0x7D,0x0A,0xAE,0x11,
+  0xC9,0x9A,0x23,0xB0,0x54,0x5C,0x90,0x67,
+  0x10,0xF3,0xB8,0xEE,0x99,0x92,0x03,0xF3,
+  0xA2,0x22,0x97,0x76,0xE7,0xD1,0x66,0x5F,
+  0xFA,0x72,0xF3,0x91,0x91,0x07,0xC9,0x01
+};
+
+uint8_t input[64]  = {0x12};
+uint8_t output[64] = {0};
+
+// ====================================================
+// SIMULACIÓN CONCEPTUAL RAM / STORAGE (paper)
+// ====================================================
+
+void simular_8MHz() {
+  delay(10);
+}
+
+void simular_20MHz() {
+  delay(20);
+}
+
+void simular_30MHz_JavaSAlg() {
+  delay(40); // 8 KB RAM + ~280 KB storage
+}
+
+
+// MEDICIÓN REAL RSA @16 MHz (Arduino Nano)
+
+
+float medirRSA_16MHz_ms() {
+  unsigned long t1 = micros();
+  rsa_modexp(output, input, 64, d, 64, modulus, 64);
+  unsigned long t2 = micros();
+  return (t2 - t1) / 1000.0;
+}
+
+
+// ESCALADO POR FRECUENCIA
+
+
+float escalar(float t_ms_16, float mhz) {
+  return t_ms_16 * (16.0 / mhz);
+}
+
+// Factor corrector Java Card / Multos (RSA es muy penalizado)
+float factor_java_rsa = 0.406;
+
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+
+  Serial.println("=== RSA===");
+
+  //Tiempo REAL @16 MHz
+  float t16 = medirRSA_16MHz_ms();
+
+  // Escalado
+  simular_8MHz();
+  float t8  = escalar(t16, 8);
+
+  simular_20MHz();
+  float t20 = escalar(t16, 20);
+
+  simular_30MHz_JavaSAlg();
+  float t30 = escalar(t16, 30);
+  t30 *= factor_java_rsa;
+
+  Serial.println();
+  Serial.println("--- Resultados RSA ---");
+
+  Serial.print("RSA @ 16 MHz (Arduino real): ");
+  Serial.print(t16, 3);
+  Serial.println(" ms");
+
+  Serial.print("RSA @ 8 MHz  : ");
+  Serial.print(t8, 3);
+  Serial.println(" ms");
+
+  Serial.print("RSA @ 20 MHz : ");
+  Serial.print(t20, 3);
+  Serial.println(" ms");
+
+  Serial.print("RSA @ 30 MHz (Java SAlg): ");
+  Serial.print(t30, 3);
+  Serial.println(" ms");
+
+}
+
+void loop() {}
